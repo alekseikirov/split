@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4a1f33">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Счёт">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Делим счёт</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: calm, quick, a tool used at the table with one thumb
+   IDEA: a restaurant till receipt that splits itself
+   PICTURE: the live receipt with each person's share, large, under the inputs
+   COLOUR and TYPE: wine-plum ground, white paper, coral accent; Onest + JetBrains Mono for money
+   LAYOUT: one column, people → dishes → tip → receipt; two columns above 900px */
+:root{color-scheme:light dark;
+--bg:light-dark(#f3ece9,#1c0f16);--band:light-dark(#4a1f33,#2b1520);--paper:light-dark(#ffffff,#2a1a22);
+--ink:light-dark(#22141b,#f4e9ee);--mute:light-dark(#76626c,#b9a3ae);--line:light-dark(#e6dadf,#46303b);
+--acc:#ff5f45;--acc2:light-dark(#ffe1db,#4a2620);--ok:light-dark(#1f7a4d,#6fd3a0);--chip:light-dark(#f4edf0,#3a2630)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Onest,system-ui,sans-serif;overflow-x:clip}
+header{background:var(--band);color:#fff;padding:max(22px,calc(env(safe-area-inset-top) + 12px)) max(5vw,16px,env(safe-area-inset-right)) 64px max(5vw,16px,env(safe-area-inset-left))}
+body{padding-bottom:env(safe-area-inset-bottom)}
+header h1{font-size:clamp(30px,6vw,44px);line-height:1.05;margin:0 0 6px;font-weight:800}
+header p{margin:0;color:#e9d3dd;max-width:60ch}
+.top{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+main{max-width:1180px;margin:-44px auto 40px;padding:0 max(4vw,12px);display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:900px){main{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);align-items:start}.res{position:sticky;top:16px}}
+.card{background:var(--paper);border-radius:16px;padding:18px;box-shadow:0 1px 0 var(--line),0 10px 30px -18px #0006}
+h2{font-size:19px;margin:0 0 12px;font-weight:700}
+.hint{color:var(--mute);font-size:14px;margin:6px 0 0}
+input{font:inherit;font-size:16px;color:var(--ink);background:transparent;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;width:100%}
+input:focus-visible,button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+button{font:inherit;font-size:15px;min-height:44px;border-radius:12px;border:0;padding:0 16px;cursor:pointer;background:var(--chip);color:var(--ink)}
+.pri{background:var(--acc);color:#fff;font-weight:700}
+.ghost{background:#ffffff1f;color:#fff}
+.row{display:flex;gap:8px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:40px;border-radius:999px;padding:0 14px;display:inline-flex;align-items:center;gap:8px;background:var(--chip)}
+.chip[aria-pressed=true]{background:var(--acc);color:#fff}
+.chip .x{opacity:.6;font-size:18px;line-height:1}
+.items{display:grid;gap:12px;margin-bottom:14px}
+.item{border:1.5px solid var(--line);border-radius:14px;padding:12px}
+.item.un{border-color:var(--acc);background:var(--acc2)}
+.r1{display:grid;grid-template-columns:minmax(0,1fr) 64px 96px 44px;gap:6px;align-items:center;margin-bottom:10px}
+.r1 .del{padding:0;background:transparent;color:var(--mute);font-size:22px}
+.qty,.pr{text-align:right;font-family:'JetBrains Mono',monospace}
+.add{display:grid;grid-template-columns:minmax(0,1fr) 96px auto;gap:8px}
+@media(max-width:480px){
+ .r1{grid-template-columns:64px minmax(0,1fr) 40px}
+ .r1 [data-f=name]{grid-column:1/3;grid-row:1}.r1 .del{grid-column:3;grid-row:1}
+ .r1 .qty{grid-column:1;grid-row:2}.r1 .pr{grid-column:2/4;grid-row:2}
+ .add{grid-template-columns:minmax(0,1fr) 104px}.add .pri{grid-column:1/-1}}
+form.row input{flex:1}form.row button{flex:none}
+.two{align-items:end}
+.who .chip{min-height:36px;font-size:14px;padding:0 12px}
+.set{display:grid;gap:14px}
+.set label{font-weight:500;display:block;margin-bottom:6px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.res{background:var(--paper);border-radius:16px;padding:22px 20px 26px;position:relative;
+ -webkit-mask:radial-gradient(circle 7px at 50% 100%,#0000 98%,#000) 0 0/18px 100% repeat-x;mask:radial-gradient(circle 7px at 50% 100%,#0000 98%,#000) 0 0/18px 100% repeat-x;box-shadow:0 10px 30px -18px #0006}
+.rhead{text-align:center;border-bottom:2px dashed var(--line);padding-bottom:12px;margin-bottom:8px}
+.rhead b{display:block;font-size:20px}
+.rhead span{color:var(--mute);font-size:14px}
+.p{display:grid;grid-template-columns:24px minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;padding:12px 0;border-bottom:1px dashed var(--line)}
+.p .nm{font-weight:700;font-size:17px;overflow-wrap:anywhere}
+.p .det{grid-column:2;color:var(--mute);font-size:13px;line-height:1.4}
+.p .det.wide{grid-column:2/4}
+.p .li{display:block;padding-left:12px;position:relative}
+.p .li::before{content:"";position:absolute;left:0;top:.62em;width:4px;height:4px;border-radius:50%;background:currentColor}
+.p .sum{font:700 17px/1.2 'JetBrains Mono',monospace;text-align:right;white-space:nowrap}
+.p .usd{grid-column:3;align-self:start;font-size:13px;color:var(--mute);font-weight:500;text-align:right;white-space:nowrap}
+.p.done .nm,.p.done .sum{opacity:.45;text-decoration:line-through}
+.box{position:relative;width:24px;height:24px;min-height:0;border-radius:7px;padding:0;font-size:14px;line-height:1;border:1.5px solid var(--mute);background:transparent;color:#fff}
+.give{grid-column:2/4;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;margin-top:8px;font-size:14px;color:var(--mute)}
+.give label{display:flex;align-items:center;gap:8px}
+.give .gv{width:110px;min-height:40px;padding:6px 10px;text-align:right;font-family:'JetBrains Mono',monospace}
+.bal{font-weight:700;font-size:14px;white-space:nowrap}
+.bal.plus{color:var(--ok)}.bal.minus{color:var(--acc)}
+.box::after{content:"";position:absolute;inset:-10px}
+.box[aria-pressed=true]{background:var(--ok);border-color:var(--ok);color:#fff}
+.tot{display:flex;justify-content:space-between;gap:10px;padding-top:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.tot.big{font-size:22px;font-weight:700}
+.bar{height:10px;border-radius:9px;background:var(--chip);overflow:hidden;margin:14px 0 4px}
+.bar i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.warn{background:var(--acc2);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px}
+.warn:empty{display:none}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.acts button{flex:1 1 140px}
+.scan{display:flex;align-items:center;justify-content:center;gap:10px;min-height:52px;border-radius:12px;background:var(--band);color:#fff;font-weight:700;cursor:pointer}
+.scan.busy{opacity:.6;pointer-events:none}
+.scan:focus-within{outline:3px solid var(--acc);outline-offset:2px}
+.meta{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:space-between;font-size:13px;color:var(--mute);margin-top:8px}
+.link{background:none;min-height:36px;padding:0;color:var(--acc);font-weight:700;font-size:14px;text-decoration:underline}
+.orig{font-size:12px;color:var(--mute);margin:-6px 0 8px;overflow-wrap:anywhere}
+.sample{font-size:13px;color:var(--mute);margin-top:10px}
+@media(prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<header>
+ <h1>Делим счёт</h1>
+ <p>Отметьте, кто что заказал. Чаевые делятся пропорционально заказу, а внизу видно, кто уже отдал деньги.</p>
+ <div class="top">
+  <button class="ghost" id="newBill">Новый счёт</button>
+  <button class="ghost" id="newGroup">Новая группа</button>
+ </div>
+</header>
+
+<main>
+ <div style="display:grid;gap:16px">
+  <section class="card">
+   <h2>Кто за столом</h2>
+   <div class="chips" id="people"></div>
+   <form class="row" id="addP" style="margin-top:12px">
+    <input id="pName" placeholder="Имя" autocomplete="off" aria-label="Имя">
+    <button class="pri" type="submit">Добавить</button>
+   </form>
+  </section>
+
+  <section class="card">
+   <h2>Что заказали</h2>
+   <div id="scanBox" hidden>
+    <label class="scan" id="scanBtn"><input type="file" accept="image/*" id="scanFile" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.6-2.4A1.5 1.5 0 0 1 9.9 5h4.2a1.5 1.5 0 0 1 1.3.6L17 8h3a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 19H4a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 4 8z"/><circle cx="12" cy="13" r="3.5"/></svg>Сфотографировать чек</label>
+    <form class="row" id="pinRow" hidden style="margin-top:10px"><input id="pinIn" type="password" inputmode="numeric" placeholder="PIN для сканирования" autocomplete="off" aria-label="PIN"><button class="pri" type="submit">OK</button></form>
+    <div class="hint" id="scanMsg" style="margin:8px 0 14px">Позиции из фото добавятся в список. Потом останется отметить, кто что ел.</div>
+   </div>
+   <div class="items" id="items"></div>
+   <form class="add" id="addI">
+    <input id="iName" placeholder="Блюдо или напиток" autocomplete="off" aria-label="Позиция">
+    <input id="iPrice" class="pr" placeholder="Цена, R" style="text-align:left" inputmode="decimal" aria-label="Цена в рэндах">
+    <button class="pri" type="submit">+ Позиция</button>
+   </form>
+   <p class="hint">Нажмите на имена под позицией. Если отметить несколько человек, сумма поделится между ними поровну. Если позиция ни на кого не отмечена, она подсветится.</p>
+  </section>
+
+  <section class="card set">
+   <h2 style="margin:0">Чаевые и курс</h2>
+   <div>
+    <label>Чаевые</label>
+    <div class="chips" id="tips"></div>
+    <div id="tipInBox" hidden style="margin-top:10px">
+     <label for="tipIn">Сколько чаевых или сервисного сбора в чеке, R</label>
+     <input id="tipIn" class="pr" inputmode="decimal" placeholder="например 154">
+     <p class="hint">Эта сумма делится пропорционально тому, кто на сколько заказал.</p>
+    </div>
+   </div>
+   <div class="two">
+    <div><label for="receipt">Итог по чеку, R</label><input id="receipt" class="pr" inputmode="decimal" placeholder="для сверки"></div>
+    <div><label for="rate">Курс, R за $1</label><input id="rate" class="pr" inputmode="decimal" placeholder="например 18"></div>
+   </div>
+   <div>
+    <label>Округлять долю вверх до</label>
+    <div class="chips" id="rounds"></div>
+   </div>
+   <div><label for="place">Где ели</label><input id="place" placeholder="Название ресторана" autocomplete="off"></div>
+  </section>
+ </div>
+
+ <section class="res" aria-live="polite">
+  <div class="rhead"><b id="rPlace">Счёт</b><span id="rDate"></span></div>
+  <div id="list"></div>
+  <div class="tot"><span>Позиции</span><span id="tSub"></span></div>
+  <div class="tot"><span id="tTipL">Чаевые</span><span id="tTip"></span></div>
+  <div class="tot big"><span>Итого</span><span id="tAll"></span></div>
+  <div class="tot" style="padding-top:0;justify-content:flex-end;color:var(--mute);font-size:14px"><span id="tUsd"></span></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="hint" id="coll"></div>
+  <div class="warn" id="warn"></div>
+  <div class="acts">
+   <button class="pri" id="copy">Скопировать для чата</button>
+  </div>
+  <div class="sample" id="sampleNote">Здесь пример счёта, чтобы показать, как это работает. Нажмите «Новая группа», чтобы начать с нуля.</div>
+ </section>
+</main>
+
+<script>
+{
+const KEY='splitbill-v1';
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return isFinite(n)?n:0};
+const TIPS=[0,10,12,15,20];const ROUNDS=[0,5,10,50];
+
+function sample(){
+ const p=['Ирина','Олег','Марина','Дмитрий'].map(n=>({id:uid(),name:n,paid:false}));
+ const [a,b,c,d]=p.map(x=>x.id);
+ return {sample:true,place:'',tip:10,rate:'',round:5,receipt:'',people:p,items:[
+  {id:uid(),name:'Стейк из говядины',price:265,qty:1,who:[b]},
+  {id:uid(),name:'Кингклип',price:220,qty:1,who:[a]},
+  {id:uid(),name:'Салат с халлуми',price:135,qty:1,who:[c]},
+  {id:uid(),name:'Бургер',price:165,qty:1,who:[d]},
+  {id:uid(),name:'Бутылка Pinotage',price:340,qty:1,who:[a,b,c]},
+  {id:uid(),name:'Кола',price:32,qty:2,mode:'unit',cnt:{[d]:2},who:[]},
+  {id:uid(),name:'Эспрессо',price:28,qty:3,mode:'unit',cnt:{[a]:1,[b]:1},who:[]}]};
+}
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!Array.isArray(S.people))S=sample();
+S.tipIn=S.tipIn||'';
+S.items.forEach(it=>{it.who=it.who||[];it.cnt=it.cnt||{};if(!it.mode)it.mode=(Math.round(num(it.qty))>1&&it.who.length)?'share':'unit'});
+const Q=it=>Math.max(1,Math.round(num(it.qty))||1);
+const isUnit=it=>Q(it)>1&&it.mode!=='share';
+const used=it=>Object.entries(it.cnt||{}).reduce((s,[id,n])=>s+(S.people.some(p=>p.id===id)?n:0),0);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+
+const R=n=>'R '+n.toLocaleString('ru-RU',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});
+const D=n=>'$'+n.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function calc(){
+ const per={};S.people.forEach(p=>per[p.id]={sub:0,lines:[]});
+ let itemsSum=0,un=0,unNames=[],over=[];
+ S.items.forEach(it=>{
+  const q=Q(it),pr=num(it.price),cost=pr*q,nm=it.name||'без названия';itemsSum+=cost;
+  if(isUnit(it)){
+   let u=0;
+   for(const [id,n] of Object.entries(it.cnt)){if(!per[id]||!n)continue;u+=n;per[id].sub+=n*pr;per[id].lines.push(nm+(n>1?' ×'+n:''))}
+   if(u<q){un+=(q-u)*pr;unNames.push(`${nm} (${q-u} шт.)`)}
+   if(u>q)over.push(nm);
+   return}
+  const who=it.who.filter(id=>per[id]);
+  if(!who.length){un+=cost;if(it.name||cost)unNames.push(nm);return}
+  who.forEach(id=>{per[id].sub+=cost/who.length;per[id].lines.push(nm+(q>1?' ×'+q:'')+(who.length>1?` (1/${who.length})`:''))});
+ });
+ const incl=S.tip==='in',tipAmt=incl?num(S.tipIn):itemsSum*S.tip/100;let total=0;
+ S.people.forEach(p=>{const o=per[p.id];o.raw=o.sub+(itemsSum?tipAmt*o.sub/itemsSum:0);o.pay=S.round?Math.ceil(o.raw/S.round-1e-9)*S.round:Math.round(o.raw*100)/100;total+=o.pay});
+ return {per,itemsSum,un,unNames,over,incl,tipAmt,billTotal:itemsSum+tipAmt,total};
+}
+
+function renderPeople(){
+ $('people').innerHTML=S.people.length?S.people.map(p=>`<span class="chip">${esc(p.name)}<button class="x" data-rm="${esc(p.id)}" aria-label="Убрать ${esc(p.name)}" style="min-height:0;padding:0;background:none">×</button></span>`).join(''):'<span class="hint">Добавьте участников</span>';
+}
+function renderItems(){
+ $('items').innerHTML=S.items.map(it=>{
+  const valid=it.who.filter(id=>S.people.some(p=>p.id===id)),unit=isUnit(it),q=Q(it),u=unit?used(it):0;
+  const chips=unit
+   ?S.people.map(p=>{const n=it.cnt[p.id]||0;return `<button class="chip" data-tog="${esc(p.id)}" aria-pressed="${n>0}">${esc(p.name)}${n?' ×'+n:''}</button>`}).join('')
+   :S.people.map(p=>`<button class="chip" data-tog="${esc(p.id)}" aria-pressed="${valid.includes(p.id)}">${esc(p.name)}</button>`).join('')+(S.people.length>1?`<button class="chip" data-all aria-pressed="false">все</button>`:'');
+  const meta=q>1?`<div class="meta"><span>${unit?`Поштучно: отмечено ${u} из ${q}. Нажимайте на имя столько раз, сколько штук взял человек.`:`Общая позиция: ${q} шт. делятся поровну между отмеченными.`}</span><button class="link" data-mode>${unit?'делить поровну':'поштучно'}</button></div>`:'';
+  const bad=unit?u!==q:!valid.length;
+  return `<div class="item${bad?' un':''}" data-id="${esc(it.id)}">
+  <div class="r1"><input data-f="name" value="${esc(it.name)}" aria-label="Название">
+  <input class="qty" data-f="qty" inputmode="numeric" value="${esc(it.qty)}" aria-label="Количество">
+  <input class="pr" data-f="price" inputmode="decimal" value="${esc(it.price)}" aria-label="Цена за штуку, R">
+  <button class="del" data-del aria-label="Удалить позицию">×</button></div>
+  ${it.orig?`<div class="orig">в чеке: ${esc(it.orig)}</div>`:''}
+  <div class="chips who">${chips}</div>${meta}</div>`}).join('')||'<p class="hint" style="margin:0">Позиций пока нет</p>';
+}
+function renderSet(){
+ $('tips').innerHTML=TIPS.map(v=>`<button class="chip" data-tip="${v}" aria-pressed="${S.tip===v}">${v}%</button>`).join('')+`<button class="chip" data-tip="in" aria-pressed="${S.tip==='in'}">уже в чеке</button>`;
+ $('tipInBox').hidden=S.tip!=='in';$('tipIn').value=S.tipIn;
+ $('rounds').innerHTML=ROUNDS.map(v=>`<button class="chip" data-round="${v}" aria-pressed="${S.round===v}">${v?'R '+v:'без округления'}</button>`).join('');
+ $('receipt').value=S.receipt;$('rate').value=S.rate;$('place').value=S.place;
+}
+function renderRes(){
+ const c=calc(),rate=num(S.rate);
+ $('rPlace').textContent=S.place||'Счёт';
+ $('rDate').textContent=new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'})+(c.incl?' · чаевые из чека':S.tip?` · чаевые ${S.tip}%`:'');
+ $('list').innerHTML=S.people.map(p=>{const o=c.per[p.id];return `<div class="p">
+  <button class="box" data-paid="${esc(p.id)}" aria-pressed="${p.paid}" aria-label="${esc(p.name)} отдал(а)">${p.paid?'✓':''}</button>
+  <span class="nm">${esc(p.name)}</span><span class="sum">${R(o.pay)}</span>
+  <span class="det${rate?'':' wide'}">${o.lines.length?o.lines.map(l=>`<span class="li">${esc(l)}</span>`).join(''):'ничего не отмечено'}</span>${rate?`<span class="usd">${D(o.pay/rate)}</span>`:''}
+  ${p.paid?`<div class="give"><label>отдал R <input class="gv" data-give="${esc(p.id)}" inputmode="decimal" value="${esc(p.given??'')}" aria-label="Сколько отдал ${esc(p.name)}"></label><span class="bal" data-bal="${esc(p.id)}"></span></div>`:''}</div>`}).join('');
+ renderSum(c);
+}
+const givenOf=(p,c)=>(p.given==null||String(p.given).trim()==='')?c.per[p.id].pay:num(p.given);
+const diffOf=(p,c)=>givenOf(p,c)-c.per[p.id].pay;
+function renderSum(c){
+ c=c||calc();const rate=num(S.rate);
+ document.querySelectorAll('#list .p').forEach((el,i)=>{const p=S.people[i];if(p)el.classList.toggle('done',!!p.paid&&diffOf(p,c)>-0.009)});
+ document.querySelectorAll('[data-bal]').forEach(el=>{const p=S.people.find(x=>x.id===el.dataset.bal);if(!p)return;const d=diffOf(p,c);
+  el.className='bal'+(d>0.009?' plus':d<-0.009?' minus':'');el.textContent=d>0.009?`сдача ${R(d)}`:d<-0.009?`не хватает ${R(-d)}`:'без сдачи'});
+ $('tSub').textContent=R(c.itemsSum);
+ $('tTipL').textContent=c.incl?'Чаевые (в чеке)':`Чаевые ${S.tip}%`;$('tTip').textContent=R(c.tipAmt);
+ $('tAll').textContent=R(c.billTotal);$('tUsd').textContent=rate?D(c.billTotal/rate):'';
+ const paid=S.people.filter(p=>p.paid),got=paid.reduce((s,p)=>s+givenOf(p,c),0);
+ const plus=paid.filter(p=>diffOf(p,c)>0.009),minus=paid.filter(p=>diffOf(p,c)<-0.009);
+ const net=paid.reduce((s,p)=>s+diffOf(p,c),0);
+ $('bar').style.width=(c.total?Math.min(100,got/c.total*100):0)+'%';
+ let t=`Собрано ${R(got)} из ${R(c.total)}`+(c.total-c.billTotal>0.009&&!c.un?` · после округления останется ${R(c.total-c.billTotal)} сверху`:'');
+ if(plus.length&&minus.length&&Math.abs(net)<0.01)t+=' · переплаты и недоплаты взаимно покрываются: кто-то заплатил за другого, сдача не нужна';
+ else{
+  if(plus.length)t+=` · вернуть сдачу: ${plus.map(p=>p.name+' '+R(diffOf(p,c))).join(', ')}`;
+  if(plus.length&&minus.length)t+=net>0?` · в целом лишние ${R(net)}`:` · в целом не хватает ${R(-net)}`;
+ }
+ $('coll').textContent=t;
+ const w=[];
+ if(minus.length&&!(plus.length&&Math.abs(net)<0.01))w.push(`Недоплатили: ${minus.map(p=>p.name+' '+R(-diffOf(p,c))).join(', ')}.`);
+ if(c.un)w.push(`Ни на кого не отмечено: ${c.unNames.join(', ')} (${R(c.un)}). Эту сумму пока никто не платит.`);
+ const rc=num(S.receipt);
+ const exp=c.itemsSum+(c.incl?c.tipAmt:0);
+ if(rc&&Math.abs(rc-exp)>0.5)w.push(`${c.incl?'Позиции и чаевые':'Позиции'} дают ${R(exp)}, а в чеке ${R(rc)}. Разница ${R(Math.abs(rc-exp))}: `+(c.incl?'возможно, что-то пропущено или неверно указана сумма чаевых.':'возможно, что-то пропущено. Если в чеке уже есть чаевые или сервисный сбор, выберите «уже в чеке».'));
+ if(c.over.length)w.push(`Отмечено больше штук, чем заказано: ${c.over.join(', ')}.`);
+ if(c.incl&&!num(S.tipIn))w.push('Впишите сумму чаевых из чека.');
+ $('warn').innerHTML=w.map(esc).join('<br><br>');
+ $('sampleNote').style.display=S.sample?'':'none';
+}
+const all=()=>{renderPeople();renderItems();renderSet();renderRes();save()};
+const upd=()=>{S.sample=false;renderRes();save()};
+
+$('addP').addEventListener('submit',e=>{e.preventDefault();const n=$('pName').value.trim();if(!n)return;S.people.push({id:uid(),name:n,paid:false});$('pName').value='';S.sample=false;all();$('pName').focus()});
+$('people').addEventListener('click',e=>{const id=e.target.closest('[data-rm]')?.dataset.rm;if(!id)return;S.people=S.people.filter(p=>p.id!==id);S.items.forEach(i=>{i.who=i.who.filter(x=>x!==id);delete i.cnt[id]});S.sample=false;all()});
+$('addI').addEventListener('submit',e=>{e.preventDefault();const n=$('iName').value.trim(),pr=num($('iPrice').value);if(!n&&!pr)return;S.items.push({id:uid(),name:n,price:pr,qty:1,mode:'unit',cnt:{},who:[]});$('iName').value='';$('iPrice').value='';S.sample=false;all();$('iName').focus()});
+$('items').addEventListener('input',e=>{const f=e.target.dataset.f,it=S.items.find(i=>i.id===e.target.closest('.item').dataset.id);if(!f||!it)return;it[f]=f==='name'?e.target.value:e.target.value.replace(',','.');upd()});
+$('items').addEventListener('click',e=>{
+ const box=e.target.closest('.item');if(!box)return;const it=S.items.find(i=>i.id===box.dataset.id);
+ if(e.target.closest('[data-del]'))S.items=S.items.filter(i=>i!==it);
+ else if(e.target.closest('[data-all]'))it.who=S.people.map(p=>p.id);
+ else if(e.target.closest('[data-mode]'))it.mode=isUnit(it)?'share':'unit';
+ else{const t=e.target.closest('[data-tog]');if(!t)return;const id=t.dataset.tog;
+  if(isUnit(it)){const n=(it.cnt[id]||0)+1;it.cnt[id]=n>Q(it)?0:n}
+  else it.who=it.who.includes(id)?it.who.filter(x=>x!==id):[...it.who,id]}
+ S.sample=false;all()});
+$('items').addEventListener('change',e=>{if(e.target.dataset.f==='qty')all()});
+$('tips').addEventListener('click',e=>{const b=e.target.closest('[data-tip]');if(!b)return;S.tip=b.dataset.tip==='in'?'in':+b.dataset.tip;S.sample=false;all();if(S.tip==='in'&&!S.tipIn)$('tipIn').focus()});
+$('rounds').addEventListener('click',e=>{const b=e.target.closest('[data-round]');if(!b)return;S.round=+b.dataset.round;S.sample=false;all()});
+['receipt','rate','place','tipIn'].forEach(k=>$(k).addEventListener('input',e=>{S[k]=e.target.value;upd()}));
+$('list').addEventListener('click',e=>{const id=e.target.closest('[data-paid]')?.dataset.paid;const p=S.people.find(x=>x.id===id);if(!p)return;p.paid=!p.paid;p.given=p.paid?String(calc().per[p.id].pay):'';upd()});
+$('list').addEventListener('input',e=>{const id=e.target.dataset.give;const p=S.people.find(x=>x.id===id);if(!p)return;p.given=e.target.value.replace(',','.');renderSum();save()});
+$('list').addEventListener('focusin',e=>{if(e.target.dataset.give)e.target.select()});
+$('newBill').addEventListener('click',()=>{S.items=[];S.receipt='';S.tipIn='';if(S.tip==='in')S.tip=10;S.place='';S.people.forEach(p=>{p.paid=false;p.given=''});S.sample=false;all()});
+$('newGroup').addEventListener('click',()=>{S={sample:false,place:'',tipIn:'',tip:S.tip==='in'?10:S.tip,rate:S.rate,round:S.round,receipt:'',people:[],items:[]};all();$('pName').focus()});
+$('copy').addEventListener('click',async e=>{
+ const c=calc(),rate=num(S.rate);
+ const lines=[`${S.place||'Обед'}, ${new Date().toLocaleDateString('ru-RU')}`,''];
+ S.people.forEach(p=>{const o=c.per[p.id];const d=p.paid?diffOf(p,c):0;lines.push(`${p.name} — ${R(o.pay)}${rate?` (${D(o.pay/rate)})`:''}${p.paid?' ✓':''}${d>0.009?`, отдал ${R(givenOf(p,c))}, сдача ${R(d)}`:d<-0.009?`, отдал ${R(givenOf(p,c))}, не хватает ${R(-d)}`:''}`)});
+ lines.push('',`Итого ${R(c.billTotal)}, чаевые ${c.incl?'из чека':S.tip+'%'} включены`);
+ const btn=e.currentTarget,old=btn.textContent;
+ try{await navigator.clipboard.writeText(lines.join('\n'));btn.textContent='Скопировано'}catch(err){btn.textContent='Не вышло, выделите текст вручную'}
+ setTimeout(()=>btn.textContent=old,1800)});
+all();
+
+// ---- сканирование чека через свой Cloudflare Worker ----
+const WORKER_URL='https://split-scanner-production.up.railway.app'; // ← ВСТАВЬТЕ адрес Worker'а, например 'https://split-scanner.alekseikirov.workers.dev'
+const PIN_KEY='splitbill-pin';
+const msg=t=>$('scanMsg').textContent=t;
+const getPin=()=>{try{return localStorage.getItem(PIN_KEY)||''}catch(e){return ''}};
+const setPin=v=>{try{localStorage.setItem(PIN_KEY,v)}catch(e){}};
+const showPin=on=>{$('pinRow').hidden=!on};
+if(WORKER_URL){$('scanBox').hidden=false;showPin(!getPin())}
+$('pinRow').addEventListener('submit',e=>{e.preventDefault();const v=$('pinIn').value.trim();if(!v)return;setPin(v);$('pinIn').value='';showPin(false);msg('PIN сохранён на этом телефоне. Можно сканировать.')});
+
+function shrinkB64(file){return new Promise((res,rej)=>{
+ const img=new Image(),url=URL.createObjectURL(file);
+ img.onload=()=>{const k=Math.min(1,1800/Math.max(img.width,img.height));const c=document.createElement('canvas');
+  c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',.85).split(',')[1])};
+ img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('img'))};img.src=url})}
+
+function applyScan(r){
+ const its=(Array.isArray(r?.items)?r.items:[]).filter(i=>i&&num(i.price)>0);
+ if(!its.length){msg('Не нашёл позиций на фото. Попробуйте снять чек ровнее и при хорошем свете.');return}
+ if(S.sample){S.items=[];S.people.forEach(p=>{p.paid=false;p.given=''})}
+ S.sample=false;
+ its.forEach(i=>S.items.push({id:uid(),name:String(i.name||i.orig||'Позиция').slice(0,80),orig:String(i.orig||'').slice(0,80),price:Math.round(num(i.price)*100)/100,qty:Math.max(1,Math.round(num(i.qty))||1),mode:'unit',cnt:{},who:[]}));
+ if(num(r.total))S.receipt=String(num(r.total));
+ const notes=[`Добавлено позиций: ${its.length}. Проверьте цены и отметьте, кто что ел.`];
+ if(num(r.service)>0){S.tip='in';S.tipIn=String(num(r.service));notes.push(`В чеке уже есть чаевые ${R(num(r.service))}: включил режим «уже в чеке», сверху ничего не добавится.`)}
+ if(its.some(i=>num(i.qty)>1))notes.push('Если одинаковую позицию брали разные люди, нажимайте на имя столько раз, сколько штук взял каждый.');
+ if(r.unreadable)notes.push('Часть строк читается плохо: сверьте с бумажным чеком.');
+ all();msg(notes.join(' '));
+}
+
+$('scanFile').addEventListener('change',async e=>{
+ const f=e.target.files?.[0];e.target.value='';if(!f)return;
+ if(!getPin()){showPin(true);msg('Сначала введите PIN.');return}
+ if(!navigator.onLine){msg('Нет интернета. Добавьте позиции вручную: сканирование заработает, когда появится связь.');return}
+ const btn=$('scanBtn');btn.classList.add('busy');msg('Читаю чек, это займёт 10–20 секунд…');
+ try{
+  const image=await shrinkB64(f);
+  const res=await fetch(WORKER_URL,{method:'POST',headers:{'content-type':'application/json','x-pin':getPin()},body:JSON.stringify({image})});
+  if(res.status===401){setPin('');showPin(true);msg('Неверный PIN. Введите ещё раз.');return}
+  const r=await res.json().catch(()=>null);
+  if(!res.ok||!r||r.error){msg('Не получилось распознать чек'+(r&&r.error?` (${r.error})`:'')+'. Попробуйте ещё раз или добавьте позиции вручную.');return}
+  applyScan(r);
+ }catch(err){msg('Не удалось связаться с сервером сканирования. Проверьте интернет и попробуйте ещё раз.')}
+ finally{btn.classList.remove('busy')}
+});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
