@@ -1,6 +1,6 @@
 // Офлайн-режим: калькулятор открывается и без интернета.
 // После каждого изменения index.html увеличьте номер версии, чтобы телефоны получили обновление.
-const CACHE = 'split-v1';
+const CACHE = 'split-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

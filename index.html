@@ -129,7 +129,6 @@ form.row input{flex:1}form.row button{flex:none}
    <h2>Что заказали</h2>
    <div id="scanBox" hidden>
     <label class="scan" id="scanBtn"><input type="file" accept="image/*" id="scanFile" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.6-2.4A1.5 1.5 0 0 1 9.9 5h4.2a1.5 1.5 0 0 1 1.3.6L17 8h3a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 19H4a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 4 8z"/><circle cx="12" cy="13" r="3.5"/></svg>Сфотографировать чек</label>
-    <form class="row" id="pinRow" hidden style="margin-top:10px"><input id="pinIn" type="password" inputmode="numeric" placeholder="PIN для сканирования" autocomplete="off" aria-label="PIN"><button class="pri" type="submit">OK</button></form>
     <div class="hint" id="scanMsg" style="margin:8px 0 14px">Позиции из фото добавятся в список. Потом останется отметить, кто что ел.</div>
    </div>
    <div class="items" id="items"></div>
@@ -339,14 +338,9 @@ $('copy').addEventListener('click',async e=>{
 all();
 
 // ---- сканирование чека через свой Cloudflare Worker ----
-const WORKER_URL='https://split-scanner-production.up.railway.app'; // ← ВСТАВЬТЕ адрес Worker'а, например 'https://split-scanner.alekseikirov.workers.dev'
-const PIN_KEY='splitbill-pin';
+const WORKER_URL='https://split-scanner-production.up.railway.app'; // адрес сервера сканирования
 const msg=t=>$('scanMsg').textContent=t;
-const getPin=()=>{try{return localStorage.getItem(PIN_KEY)||''}catch(e){return ''}};
-const setPin=v=>{try{localStorage.setItem(PIN_KEY,v)}catch(e){}};
-const showPin=on=>{$('pinRow').hidden=!on};
-if(WORKER_URL){$('scanBox').hidden=false;showPin(!getPin())}
-$('pinRow').addEventListener('submit',e=>{e.preventDefault();const v=$('pinIn').value.trim();if(!v)return;setPin(v);$('pinIn').value='';showPin(false);msg('PIN сохранён на этом телефоне. Можно сканировать.')});
+if(WORKER_URL)$('scanBox').hidden=false;
 
 function shrinkB64(file){return new Promise((res,rej)=>{
  const img=new Image(),url=URL.createObjectURL(file);
@@ -371,14 +365,12 @@ function applyScan(r){
 
 $('scanFile').addEventListener('change',async e=>{
  const f=e.target.files?.[0];e.target.value='';if(!f)return;
- if(!getPin()){showPin(true);msg('Сначала введите PIN.');return}
  if(!navigator.onLine){msg('Нет интернета. Добавьте позиции вручную: сканирование заработает, когда появится связь.');return}
  const btn=$('scanBtn');btn.classList.add('busy');msg('Читаю чек, это займёт 10–20 секунд…');
  try{
   const image=await shrinkB64(f);
-  const res=await fetch(WORKER_URL,{method:'POST',headers:{'content-type':'application/json','x-pin':getPin()},body:JSON.stringify({image})});
-  if(res.status===401){setPin('');showPin(true);msg('Неверный PIN. Введите ещё раз.');return}
-  const r=await res.json().catch(()=>null);
+  const res=await fetch(WORKER_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({image})});
+   const r=await res.json().catch(()=>null);
   if(!res.ok||!r||r.error){msg('Не получилось распознать чек'+(r&&r.error?` (${r.error})`:'')+'. Попробуйте ещё раз или добавьте позиции вручную.');return}
   applyScan(r);
  }catch(err){msg('Не удалось связаться с сервером сканирования. Проверьте интернет и попробуйте ещё раз.')}
